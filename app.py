@@ -527,7 +527,8 @@ if mode == "📝 快速诊断（免费）":
         with c1:
             st.markdown(f"<div class='glass-card'>{st.session_state['report_text']}</div>", unsafe_allow_html=True)
         with c2:
-            st.image(st.session_state['radar_img'], caption="能力维度分析")
+            if 'radar_img' in st.session_state:
+                st.image(st.session_state['radar_img'], caption="能力维度分析")
 
         # 下载按钮（预览版）
         docx_file = create_word_docx_simple(
