@@ -17,7 +17,6 @@ import time
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.font_manager import FontProperties
 from docx import Document
 from docx.shared import Pt, Inches, Cm, RGBColor
 from docx.oxml.ns import qn
@@ -346,9 +345,9 @@ def clean_markdown_text(text):
     text = text.replace("---", "")
     return text
 
-# ==================== 雷达图（参考 Math AI Insight Pro 标准）====================
+# ==================== 雷达图（参考 Math AI Insight Pro 标准 - Linux兼容）====================
 def create_radar_chart_image(scores):
-    """创建雷达图 - 白底专业版"""
+    """创建雷达图 - 白底专业版（跨平台兼容）"""
     labels = list(scores.keys())
     values = list(scores.values())
     values += values[:1]
@@ -366,18 +365,14 @@ def create_radar_chart_image(scores):
     ax.scatter(angles, values, color='#0066CC', s=80, edgecolors='white', linewidth=2, zorder=11)
     ax.set_ylim(0, 100)
 
-    # 尝试使用中文字体
-    try:
-        font_prop = FontProperties(fname=r"C:\Windows\Fonts\msyh.ttc", size=14)
-        ax.set_yticklabels([])
-        ax.set_xticks(angles[:-1])
-        ax.set_xticklabels(labels, fontproperties=font_prop, color='black', weight='bold')
-    except:
-        ax.set_yticklabels([])
-        ax.set_xticks(angles[:-1])
-        ax.set_xticklabels(labels, color='black', weight='bold')
+    # 设置标签 - 不使用字体文件，直接设置
+    ax.set_yticklabels([])
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(labels, color='black', weight='bold', fontsize=13)
 
-    ax.tick_params(pad=30)
+    ax.tick_params(pad=35)
+
+    # 保存图片
     img_buf = io.BytesIO()
     plt.savefig(img_buf, format='png', bbox_inches='tight', dpi=300, facecolor='white', transparent=False)
     img_buf.seek(0)
