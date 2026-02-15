@@ -847,7 +847,7 @@ elif mode == "深度诊断":
 
             st.info(f"📄 检测到PDF文件，共 {total_pages} 页")
 
-            page_range = st.slider("选择要分析的页面", 1, total_pages, (1, min(3, total_pages))))
+            page_range = st.slider("选择要分析的页面", 1, total_pages, (1, min(3, total_pages)))
 
             if st.button("🚀 开始深度分析", type="primary", use_container_width=True):
                 with st.status("🔍 AI分析中...", expanded=True) as status:
