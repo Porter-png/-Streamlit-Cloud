@@ -266,31 +266,23 @@ def set_font(run, font_name_cn, font_name_en='Times New Roman', size_pt=10.5, bo
         run.font.color.rgb = color
 
 def create_word_docx_simple(report_text, student_name, radar_img_stream=None):
-    """创建简化的Word文档"""
+    """创建简化的Word文档（Linux兼容版本）"""
     doc = Document()
-    section = doc.sections[0]
-    section.left_margin = Cm(2.54)
-    section.right_margin = Cm(2.54)
-
-    # 设置默认字体
-    style = doc.styles['Normal']
-    style.font.name = 'Times New Roman'
-    style._element.rPr.rFonts.set(qn('w:eastAsia'), '宋体')
-    style.font.size = Pt(10.5)
-    style.paragraph_format.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
-
-    COLOR_BLACK = RGBColor(0, 0, 0)
 
     # 添加标题
     title = doc.add_heading(level=1)
     title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
     run = title.add_run(f"{student_name} 数学诊断报告")
-    set_font(run, '黑体', 18, bold=True, color=COLOR_BLACK)
+    run.font.size = Pt(18)
+    run.bold = True
 
     # 添加雷达图
     if radar_img_stream:
-        radar_img_stream.seek(0)
-        doc.add_picture(radar_img_stream, width=Inches(4.5))
+        try:
+            radar_img_stream.seek(0)
+            doc.add_picture(radar_img_stream, width=Inches(4.5))
+        except:
+            pass
 
     # 添加内容
     lines = report_text.split('\n')
@@ -302,19 +294,21 @@ def create_word_docx_simple(report_text, student_name, radar_img_stream=None):
         if line.startswith('# '):
             p = doc.add_heading(level=1)
             run = p.add_run(line.replace('# ', ''))
-            set_font(run, '黑体', 18, bold=True)
+            run.font.size = Pt(18)
+            run.bold = True
         elif line.startswith('## '):
             p = doc.add_heading(level=2)
             run = p.add_run(line.replace('## ', ''))
-            set_font(run, '微软雅黑', 15, bold=True)
+            run.font.size = Pt(15)
+            run.bold = True
         elif line.startswith('### '):
             p = doc.add_heading(level=3)
             run = p.add_run(line.replace('### ', ''))
-            set_font(run, '黑体', 12, bold=True)
+            run.font.size = Pt(12)
+            run.bold = True
         else:
             p = doc.add_paragraph()
-            run = p.add_run(line)
-            set_font(run, '宋体', 10.5)
+            p.add_run(line)
 
     doc_io = io.BytesIO()
     doc.save(doc_io)
