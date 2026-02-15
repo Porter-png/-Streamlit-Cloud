@@ -17,9 +17,16 @@ import time
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 from docx import Document
-from docx.shared import Pt, Inches
+from docx.shared import Pt, Inches, Cm, RGBColor
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
+
+# 设置matplotlib支持中文
+mpl.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Arial Unicode MS', 'sans-serif']
+mpl.rcParams['axes.unicode_minus'] = False
 
 # ==================== 核心配置 ====================
 # API密钥
@@ -374,34 +381,262 @@ def process_pdf_bytes(file_bytes, start_page, end_page):
     return images, enhanced_images
 
 def create_radar_chart_image(scores):
-    """创建雷达图"""
+    """创建雷达图（支持中文标签）"""
     labels = list(scores.keys())
     values = list(scores.values())
     values += values[:1]
     angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False).tolist()
     angles += angles[:1]
 
+    # 创建图表
     fig, ax = plt.subplots(figsize=(7, 7), subplot_kw=dict(polar=True))
+
+    # 尝试设置中文字体
+    try:
+        plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Arial Unicode MS']
+        plt.rcParams['axes.unicode_minus'] = False
+    except:
+        pass
+
+    # 设置背景色
     fig.patch.set_facecolor('#1e2130')
     ax.set_facecolor('#1e2130')
     ax.grid(color='#2d3548', linestyle='-', linewidth=1.0)
     ax.spines['polar'].set_visible(False)
 
+    # 绘制数据
     ax.plot(angles, values, color='#4a9eff', linewidth=2.5, linestyle='-', zorder=10)
     ax.fill(angles, values, color='#4a9eff', alpha=0.2)
     ax.scatter(angles, values, color='#4a9eff', s=80, edgecolors='white', linewidth=2, zorder=11)
     ax.set_ylim(0, 100)
 
+    # 设置标签
     ax.set_yticklabels([])
     ax.set_xticks(angles[:-1])
-    ax.set_xticklabels(labels, color='#ffffff', weight='bold', fontsize=12)
+    ax.set_xticklabels(labels, color='#ffffff', weight='bold', fontsize=13)
+    ax.tick_params(pad=35)
 
-    ax.tick_params(pad=30)
     img_buf = io.BytesIO()
     plt.savefig(img_buf, format='png', bbox_inches='tight', dpi=300, facecolor='#1e2130', transparent=False)
     img_buf.seek(0)
     plt.close(fig)
     return img_buf
+
+def set_cell_margins(cell, **kwargs):
+    """设置单元格边距"""
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    tcMar = OxmlElement('w:tcMar')
+    for margin in ['top', 'left', 'bottom', 'right']:
+        if margin in kwargs:
+            elm = OxmlElement(f'w:{margin}')
+            elm.set(qn('w:w'), str(kwargs[margin]))
+            tcMar.append(elm)
+    tcPr.append(tcMar)
+
+def set_cell_border(cell, **kwargs):
+    """设置单元格边框"""
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    tcBorders = OxmlElement('w:tcBorders')
+    for border in ['top', 'left', 'bottom', 'right', 'insideH', 'insideV']:
+        if border in kwargs:
+            elm = OxmlElement(f'w:{border}')
+            for key, value in kwargs[border].items():
+                elm.set(qn(f'w:{key}'), str(value))
+            tcBorders.append(elm)
+    tcPr.append(tcBorders)
+
+def set_run_font(run, chinese_font='宋体', english_font='Times New Roman', size=10.5, bold=False, color=None):
+    """设置运行字体 - 中英文分别设置"""
+    run.font.name = english_font
+    run.font.size = Pt(size)
+    run.font.bold = bold
+
+    # 设置中文字体
+    rPr = run._element.get_or_add_rPr()
+    rFonts = OxmlElement('w:rFonts')
+    rFonts.set(qn('w:eastAsia'), chinese_font)
+    rFonts.set(qn('w:ascii'), english_font)
+    rFonts.set(qn('w:hAnsi'), english_font)
+    rPr.append(rFonts)
+
+    if color:
+        color_elem = OxmlElement('w:color')
+        color_elem.set(qn('w:val'), color)
+        rPr.append(color_elem)
+
+def create_word_docx_simple(report_text, student_name, radar_img_stream=None):
+    """创建Word文档 - 麦肯锡咨询报告风格"""
+    doc = Document()
+
+    # ==================== 页面设置 ====================
+    section = doc.sections[0]
+    section.page_height = Cm(29.7)  # A4高度
+    section.page_width = Cm(21)     # A4宽度
+    section.left_margin = Cm(2.54)
+    section.right_margin = Cm(2.54)
+    section.top_margin = Cm(2.54)
+    section.bottom_margin = Cm(2.54)
+
+    # ==================== 设置默认样式 ====================
+    style = doc.styles['Normal']
+    style.font.name = 'Times New Roman'
+    style.font.size = Pt(10.5)
+
+    # 设置中文字体
+    rPr = style._element.get_or_add_rPr()
+    rFonts = OxmlElement('w:rFonts')
+    rFonts.set(qn('w:eastAsia'), '宋体')
+    rFonts.set(qn('w:ascii'), 'Times New Roman')
+    rFonts.set(qn('w:hAnsi'), 'Times New Roman')
+    rPr.append(rFonts)
+
+    # 设置行间距1.5倍
+    pPr = style._element.get_or_add_pPr()
+    spacing = OxmlElement('w:spacing')
+    spacing.set(qn('w:line'), '360')  # 1.5倍行距 = 240 * 1.5 = 360
+    spacing.set(qn('w:lineRule'), 'auto')
+    pPr.append(spacing)
+
+    # ==================== 封面/标题页 ====================
+    # 主标题
+    title = doc.add_heading(level=1)
+    title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+    title_run = title.add_run(f"{student_name} 数学诊断报告")
+    set_run_font(title_run, chinese_font='黑体', english_font='Arial', size=18, bold=True)
+    title_format = title._element.get_or_add_pPr()
+    title_spacing = OxmlElement('w:spacing')
+    title_spacing.set(qn('w:before'), '240')
+    title_spacing.set(qn('w:after'), '120')
+    title_format.append(title_spacing)
+
+    # 添加雷达图
+    if radar_img_stream:
+        try:
+            radar_img_stream.seek(0)
+            pic_para = doc.add_paragraph()
+            pic_para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+            pic_para.add_run().add_picture(radar_img_stream, width=Inches(4.5))
+        except:
+            pass
+
+    # ==================== 分隔线 ====================
+    doc.add_paragraph('_' * 80)
+
+    # ==================== 解析报告内容 ====================
+    lines = report_text.split('\n')
+    in_list = False
+
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("```") or line.startswith("---"):
+            continue
+
+        # 一级标题
+        if line.startswith('# '):
+            in_list = False
+            text = line.replace('# ', '').replace('数学诊断报告（预览版）', '').replace('数学诊断报告', '').strip()
+            if text:
+                h1 = doc.add_heading(level=1)
+                run = h1.add_run(text)
+                set_run_font(run, chinese_font='黑体', english_font='Arial', size=16, bold=True)
+
+                # 标题后间距
+                pPr = h1._element.get_or_add_pPr()
+                spacing = OxmlElement('w:spacing')
+                spacing.set(qn('w:before'), '180')
+                spacing.set(qn('w:after'), '120')
+                pPr.append(spacing)
+
+        # 二级标题
+        elif line.startswith('## '):
+            in_list = False
+            text = line.replace('## ', '')
+            h2 = doc.add_heading(level=2)
+            run = h2.add_run(text)
+            set_run_font(run, chinese_font='黑体', english_font='Arial', size=14, bold=True)
+
+            # 标题间距
+            pPr = h2._element.get_or_add_pPr()
+            spacing = OxmlElement('w:spacing')
+            spacing.set(qn('w:before'), '120')
+            spacing.set(qn('w:after'), '96')
+            pPr.append(spacing)
+
+        # 三级标题
+        elif line.startswith('### '):
+            in_list = False
+            text = line.replace('### ', '')
+            h3 = doc.add_heading(level=3)
+            run = h3.add_run(text)
+            set_run_font(run, chinese_font='黑体', size=12, bold=True)
+
+            pPr = h3._element.get_or_add_pPr()
+            spacing = OxmlElement('w:spacing')
+            spacing.set(qn('w:before'), '96')
+            spacing.set(qn('w:after'), '72')
+            pPr.append(spacing)
+
+        # 列表项
+        elif line.startswith(('- ', '* ', '• ', '1. ', '2. ', '3. ', '4. ', '5. ', '6. ', '7. ', '8. ', '9. ')):
+            # 提取列表标记
+            text = line
+            marker = ''
+            if line.startswith('- '):
+                marker = '•'
+                text = line[2:]
+            elif line.startswith('* '):
+                marker = '•'
+                text = line[2:]
+            elif line.startswith('• '):
+                marker = '•'
+                text = line[2:]
+            elif len(line) > 3 and line[2] == '.' and line[0].isdigit():
+                marker = line[:3]
+                text = line[3:]
+
+            if not in_list:
+                p = doc.add_paragraph(style='List Bullet')
+                in_list = True
+            else:
+                p = doc.add_paragraph(style='List Bullet')
+
+            # 清除默认内容
+            p.clear()
+            # 添加列表标记
+            run = p.add_run(marker + ' ')
+            set_run_font(run, size=10.5, bold=True)
+            # 添加列表内容
+            run = p.add_run(text)
+            set_run_font(run, size=10.5)
+
+        # 普通段落
+        else:
+            in_list = False
+            p = doc.add_paragraph()
+            run = p.add_run(line)
+            set_run_font(run, size=10.5)
+
+            # 段落间距
+            pPr = p._element.get_or_add_pPr()
+            spacing = OxmlElement('w:spacing')
+            spacing.set(qn('w:after'), '96')  # 段后6磅
+            pPr.append(spacing)
+
+    # ==================== 页脚 ====================
+    section = doc.sections[0]
+    footer = section.footer
+    footer_para = footer.paragraphs[0]
+    footer_para.text = f"陈老师数学诊断 | 微信：{WECHAT_ID} | 报告生成时间：{time.strftime('%Y-%m-%d')}"
+    footer_para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+    for run in footer_para.runs:
+        set_run_font(run, size=9)
+
+    doc_io = io.BytesIO()
+    doc.save(doc_io)
+    doc_io.seek(0)
+    return doc_io
 
 def create_word_docx_simple(report_text, student_name, radar_img_stream=None):
     """创建Word文档"""
