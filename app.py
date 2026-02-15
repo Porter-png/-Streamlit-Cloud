@@ -89,30 +89,56 @@ st.markdown("""
         box-shadow: 0 0 10px rgba(0, 201, 255, 0.3);
     }
 
-    /* 侧边栏样式 */
+    /* 侧边栏样式 - 全面白色高亮 */
     [data-testid="stSidebar"] {
         background-color: #050505;
         border-right: 1px solid rgba(255, 255, 255, 0.1);
     }
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+    [data-testid="stSidebar"] * {
+        color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
+    }
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] h4,
+    [data-testid="stSidebar"] h5,
+    [data-testid="stSidebar"] h6 {
         color: #FFFFFF !important;
         -webkit-text-fill-color: #FFFFFF !important;
     }
     [data-testid="stSidebar"] label {
-        color: #E0E0E0 !important;
+        color: #FFFFFF !important;
         font-size: 0.95rem !important;
         font-weight: 600 !important;
     }
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] span,
+    [data-testid="stSidebar"] div {
+        color: #E0E0E0 !important;
+    }
     [data-testid="stSidebar"] [data-baseweb="input"] > div,
     [data-testid="stSidebar"] [data-baseweb="select"] > div {
-        background-color: #111 !important;
-        border: 1px solid #444 !important;
+        background-color: #1a1a1a !important;
+        border: 1px solid #4a9eff !important;
         color: #FFFFFF !important;
-        border-radius: 4px !important;
+        border-radius: 8px !important;
     }
-    [data-testid="stSidebar"] input, [data-testid="stSidebar"] [data-baseweb="select"] span {
+    [data-testid="stSidebar"] input,
+    [data-testid="stSidebar"] textarea {
+        background-color: #1a1a1a !important;
         color: #FFFFFF !important;
         -webkit-text-fill-color: #FFFFFF !important;
+    }
+    [data-testid="stSidebar"] [role="option"] {
+        background-color: #1a1a1a !important;
+        color: #FFFFFF !important;
+    }
+    [data-testid="stSidebar"] [data-baseweb="select"] span {
+        color: #FFFFFF !important;
+    }
+    [data-testid="stSidebar"] .stSelectbox label {
+        color: #FFFFFF !important;
     }
 
     /* 上传框样式 */
