@@ -1,185 +1,338 @@
 # -*- coding: utf-8 -*-
 """
-DSE/高考数学提分潜力诊断工具
+DSE/高考数学提分潜力诊断工具 v2.0
 陈老师专属 - AI驱动的数学诊断系统
+UI设计：专业、简洁、高对比度
 """
 
 import streamlit as st
 import google.generativeai as genai
+from zhipuai import ZhipuAI
 from PIL import Image, ImageEnhance
 import fitz  # PyMuPDF
 import io
 import re
 import json
 import time
-import requests
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.font_manager import FontProperties
 from docx import Document
-from docx.shared import Pt, RGBColor, Inches, Cm
-from docx.oxml.ns import qn
-from docx.oxml import OxmlElement
-from docx.enum.text import WD_PARAGRAPH_ALIGNMENT, WD_LINE_SPACING
+from docx.shared import Pt, Inches
 
-# ==================== 0. 核心配置 ====================
-# 你的Gemini API密钥
+# ==================== 核心配置 ====================
+# API密钥
 GEMINI_API_KEY = "AIzaSyBcvLsNA4ZeLbxHjcWmx_Fy1OcXYS5z9J0"
+GLM_API_KEY = "445b29b7119946d49c65361161dae089.tdSIhpAFssxWAoEO"
 
-# 你的微信号
+# 微信号
 WECHAT_ID = "xiaobo20230512"
 
-# ==================== 1. UI 深度美化 ====================
+# 模型选择（质量优先）
+PRIMARY_MODEL = "gemini-2.5-pro"  # 主模型：最新专业版
+FALLBACK_MODEL = "glm-4-plus"     # 备用：GLM最强版
+
+# ==================== UI 配置 ====================
 st.set_page_config(
     page_title="陈老师数学诊断",
-    page_icon="🧬",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
+# 顶尖UI设计 - 专业简洁风格
 st.markdown("""
 <style>
-    /* 全局深色动态背景 */
-    @keyframes gradient-bg {
-        0% {background-position: 0% 50%;}
-        50% {background-position: 100% 50%;}
-        100% {background-position: 0% 50%;}
-    }
+    /* ========== 全局样式 ========== */
     .stApp {
-        background: linear-gradient(-45deg, #0b0f19, #1b2735, #243b55, #141e30);
-        background-size: 400% 400%;
-        animation: gradient-bg 15s ease infinite;
-        color: #e0e0e0;
+        background: #0a0e27;
     }
+
+    /* 隐藏Streamlit默认元素 */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
 
-    /* Tab 按钮样式 */
-    .stTabs [data-baseweb="tab-list"] {gap: 8px;}
-    .stTabs [data-baseweb="tab"] {
-        height: 45px;
-        background-color: rgba(255, 255, 255, 0.05);
-        border-radius: 6px;
-        border: 1px solid rgba(255,255,255,0.1);
-        color: #aaa;
-        transition: all 0.3s;
-    }
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(90deg, #00C9FF, #92FE9D);
-        color: #000 !important;
+    /* ========== 主标题样式 - 清晰可见 ========== */
+    .main-title {
+        font-size: 2.5rem;
         font-weight: 700;
+        color: #ffffff;
+        text-align: center;
+        margin-bottom: 10px;
+        letter-spacing: 1px;
     }
 
-    /* 侧边栏样式 */
+    .main-subtitle {
+        font-size: 1rem;
+        color: #8892b0;
+        text-align: center;
+        margin-bottom: 30px;
+    }
+
+    /* ========== 卡片样式 ========== */
+    .feature-card {
+        background: linear-gradient(135deg, #1e2130 0%, #161925 100%);
+        border: 1px solid #2d3548;
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .feature-card h3 {
+        color: #ffffff;
+        font-size: 1.2rem;
+        margin-bottom: 8px;
+        font-weight: 600;
+    }
+
+    .feature-card p {
+        color: #8892b0;
+        font-size: 0.9rem;
+        margin: 0;
+    }
+
+    /* ========== 模式选择按钮 ========== */
+    .mode-selector {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+
+    .mode-btn {
+        flex: 1;
+        padding: 20px;
+        background: #1e2130;
+        border: 2px solid #2d3548;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-align: center;
+    }
+
+    .mode-btn:hover {
+        border-color: #4a9eff;
+        background: #1a2540;
+    }
+
+    .mode-btn.active {
+        border-color: #4a9eff;
+        background: linear-gradient(135deg, #1a2540 0%, #0d1b2a 100%);
+    }
+
+    /* ========== 输入框样式 - 高对比度 ========== */
+    .stNumberInput > div > div > input,
+    .stTextInput > div > div > input {
+        background: #1e2130 !important;
+        border: 2px solid #2d3548 !important;
+        border-radius: 8px !important;
+        color: #ffffff !important;
+        font-size: 1rem !important;
+        padding: 12px !important;
+    }
+
+    .stNumberInput > div > div > input:focus,
+    .stTextInput > div > div > input:focus {
+        border-color: #4a9eff !important;
+        box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.1) !important;
+    }
+
+    /* ========== 多选框样式 ========== */
+    .stMultiSelect > div > div > div {
+        background: #1e2130 !important;
+        border: 2px solid #2d3548 !important;
+        border-radius: 8px !important;
+    }
+
+    /* ========== 下拉框样式 ========== */
+    .stSelectbox > div > div > div {
+        background: #1e2130 !important;
+        border: 2px solid #2d3548 !important;
+        border-radius: 8px !important;
+    }
+
+    /* ========== 主要按钮样式 ========== */
+    .stButton > button {
+        background: linear-gradient(135deg, #4a9eff 0%, #357abd 100%);
+        color: #ffffff;
+        border: none;
+        border-radius: 10px;
+        padding: 14px 40px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        width: 100%;
+        transition: all 0.3s;
+        box-shadow: 0 4px 15px rgba(74, 158, 255, 0.3);
+    }
+
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(74, 158, 255, 0.4);
+    }
+
+    /* ========== 下载按钮样式 ========== */
+    .stDownloadButton > button {
+        background: linear-gradient(135deg, #00c853 0%, #00a844 100%);
+        color: #ffffff;
+        border: none;
+        border-radius: 10px;
+        padding: 12px 30px;
+        font-size: 1rem;
+        font-weight: 600;
+    }
+
+    /* ========== 侧边栏样式 ========== */
     [data-testid="stSidebar"] {
-        background-color: #050505;
-        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        background: linear-gradient(180deg, #0d1117 0%, #161925 100%);
+        border-right: 1px solid #2d3548;
     }
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-        color: #FFFFFF !important;
-        -webkit-text-fill-color: #FFFFFF !important;
-    }
+
     [data-testid="stSidebar"] label {
-        color: #E0E0E0 !important;
+        color: #ffffff !important;
+        font-weight: 600 !important;
         font-size: 0.95rem !important;
+    }
+
+    [data-testid="stSidebar"] .css-1d391kg {
+        color: #8892b0 !important;
+    }
+
+    /* ========== 报告展示区 ========== */
+    .report-container {
+        background: #1e2130;
+        border: 1px solid #2d3548;
+        border-radius: 12px;
+        padding: 24px;
+        line-height: 1.8;
+    }
+
+    .report-container h1 {
+        color: #4a9eff !important;
+        font-size: 1.5rem !important;
+        margin-bottom: 15px;
+    }
+
+    .report-container h2 {
+        color: #ffffff !important;
+        font-size: 1.2rem !important;
+        margin-top: 20px;
+        margin-bottom: 10px;
+    }
+
+    .report-container h3 {
+        color: #8892b0 !important;
+        font-size: 1rem !important;
+        margin-top: 15px;
+        margin-bottom: 8px;
+    }
+
+    .report-container p, .report-container li {
+        color: #c9d1e0 !important;
+    }
+
+    /* ========== 微信引流卡片 ========== */
+    .wechat-card {
+        background: linear-gradient(135deg, rgba(74, 158, 255, 0.15) 0%, rgba(0, 200, 83, 0.15) 100%);
+        border: 2px solid #4a9eff;
+        border-radius: 16px;
+        padding: 30px;
+        text-align: center;
+        margin-top: 30px;
+    }
+
+    .wechat-card h3 {
+        color: #ffffff;
+        font-size: 1.3rem;
+        margin-bottom: 10px;
+    }
+
+    .wechat-card .wechat-id {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #4a9eff;
+        background: rgba(74, 158, 255, 0.1);
+        padding: 10px 20px;
+        border-radius: 8px;
+        display: inline-block;
+        margin: 15px 0;
+    }
+
+    /* ========== 上传区样式 ========== */
+    [data-testid='stFileUploader'] {
+        background: #1e2130 !important;
+        border: 2px dashed #4a9eff !important;
+        border-radius: 12px !important;
+        padding: 30px !important;
+    }
+
+    [data-testid='stFileUploader'] label {
+        color: #ffffff !important;
         font-weight: 600 !important;
     }
-    [data-testid="stSidebar"] [data-baseweb="input"] > div,
-    [data-testid="stSidebar"] [data-baseweb="select"] > div {
-        background-color: #111 !important;
-        border: 1px solid #444 !important;
-        color: #FFFFFF !important;
-        border-radius: 4px !important;
+
+    /* ========== 状态提示 ========== */
+    .stAlert {
+        background: #1e2130 !important;
+        border: 1px solid #2d3548 !important;
+        border-radius: 10px !important;
     }
 
-    /* 上传框样式 */
-    [data-testid='stFileUploader'] * {
-        color: #FFFFFF !important;
-        -webkit-text-fill-color: #FFFFFF !important;
-    }
-    [data-testid='stUploadedFileItem'] {
-        background-color: rgba(255, 255, 255, 0.1) !important;
-        border: 1px solid #00C9FF !important;
-        border-radius: 8px !important;
-        padding: 10px !important;
-    }
-    [data-testid='stFileUploader'] button {
-        background: linear-gradient(90deg, #00C9FF, #5EE7DF) !important;
-        color: #000 !important;
-        border: none !important;
-        border-radius: 20px !important;
-        font-weight: 800 !important;
-    }
-    [data-testid='stFileUploader'] section {
-        background-color: rgba(30, 34, 45, 0.6);
-        border: 1px dashed rgba(0, 201, 255, 0.5) !important;
-        border-radius: 10px;
-        padding: 25px 20px !important;
-    }
-
-    /* 全局按钮样式 */
-    .stButton > button, .stDownloadButton > button {
-        background: linear-gradient(90deg, #00C9FF, #92FE9D) !important;
-        color: #000 !important;
-        border: none !important;
-        border-radius: 50px !important;
-        font-weight: 800 !important;
-    }
-
-    /* 标题样式 */
-    h1 {
-        font-family: 'Segoe UI', sans-serif;
-        font-weight: 800;
-        background: linear-gradient(90deg, #00C9FF 0%, #92FE9D 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-align: center;
-        font-size: 2.2rem;
-    }
-    .glass-card {
-        background: rgba(255, 255, 255, 0.03);
-        backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 16px;
-        padding: 20px;
-        margin-bottom: 20px;
-    }
-
-    /* 提示框样式 */
-    [data-testid="stAlert"] > div, [data-testid="stAlert"] p {
-        color: #FFFFFF !important;
-        -webkit-text-fill-color: #FFFFFF !important;
+    [data-testid="stAlert"] p {
+        color: #c9d1e0 !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== 2. 辅助函数 ====================
-def call_ai_with_retry(model, prompt, content_list=None):
-    """带重试的AI调用"""
-    max_retries = 3
-    retry_delay = 30
+# ==================== AI 调用函数（双模型支持） ====================
+def call_ai_gemini(prompt, images=None):
+    """使用Gemini API"""
+    try:
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel(PRIMARY_MODEL)
 
-    for attempt in range(max_retries):
-        try:
-            if content_list:
-                return model.generate_content([prompt] + content_list)
-            else:
-                return model.generate_content(prompt)
-        except Exception as e:
-            if "429" in str(e) and attempt < max_retries - 1:
-                placeholder = st.empty()
-                progress_text = f"⚠️ API正忙，自动排队中... (尝试 {attempt+1}/{max_retries})"
-                my_bar = placeholder.progress(0, text=progress_text)
-                for i in range(retry_delay):
-                    time.sleep(1)
-                    my_bar.progress((i+1)/retry_delay, text=f"⏳ 剩余 {retry_delay-i}s")
-                placeholder.empty()
-                continue
-            else:
-                raise e
+        if images:
+            response = model.generate_content([prompt] + images)
+        else:
+            response = model.generate_content(prompt)
 
+        return response.text, "gemini"
+    except Exception as e:
+        return None, f"gemini_error: {str(e)}"
+
+def call_ai_glm(prompt):
+    """使用GLM API作为备用"""
+    try:
+        client = ZhipuAI(api_key=GLM_API_KEY)
+        response = client.chat.completions.create(
+            model=FALLBACK_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=4000,
+            temperature=0.7
+        )
+        return response.choices[0].message.content, "glm"
+    except Exception as e:
+        return None, f"glm_error: {str(e)}"
+
+def call_ai_with_fallback(prompt, images=None):
+    """智能调用AI，自动切换备用模型"""
+    # 首先尝试Gemini
+    result, source = call_ai_gemini(prompt, images)
+    if result:
+        return result, source
+
+    # Gemini失败，尝试GLM
+    if images:
+        # GLM不支持图片，返回简化提示
+        return None, "图像输入需要Gemini，当前服务繁忙"
+
+    result, source = call_ai_glm(prompt)
+    if result:
+        return result, source
+
+    return None, "所有AI服务暂时不可用，请稍后重试"
+
+# ==================== 辅助函数 ====================
 def enhance_image_for_ocr(pil_image):
     """增强图像用于OCR识别"""
     enhancer = ImageEnhance.Contrast(pil_image)
@@ -205,7 +358,6 @@ def process_pdf_bytes(file_bytes, start_page, end_page):
             img_data = pix.tobytes("png")
             original = Image.open(io.BytesIO(img_data))
 
-            # 缩放过大的图片
             if original.width > 2000:
                 ratio = 2000 / original.width
                 new_size = (2000, int(original.height * ratio))
@@ -221,7 +373,7 @@ def process_pdf_bytes(file_bytes, start_page, end_page):
     return images, enhanced_images
 
 def create_radar_chart_image(scores):
-    """创建雷达图（Linux兼容版本）"""
+    """创建雷达图"""
     labels = list(scores.keys())
     values = list(scores.values())
     values += values[:1]
@@ -229,49 +381,37 @@ def create_radar_chart_image(scores):
     angles += angles[:1]
 
     fig, ax = plt.subplots(figsize=(7, 7), subplot_kw=dict(polar=True))
-    fig.patch.set_facecolor('white')
-    ax.set_facecolor('white')
-    ax.grid(color='#E9E9E9', linestyle='-', linewidth=1.0)
+    fig.patch.set_facecolor('#1e2130')
+    ax.set_facecolor('#1e2130')
+    ax.grid(color='#2d3548', linestyle='-', linewidth=1.0)
     ax.spines['polar'].set_visible(False)
 
-    ax.plot(angles, values, color='#0066CC', linewidth=2.5, linestyle='-', zorder=10)
-    ax.fill(angles, values, color='#0066CC', alpha=0.15)
-    ax.scatter(angles, values, color='#0066CC', s=80, edgecolors='white', linewidth=2, zorder=11)
+    ax.plot(angles, values, color='#4a9eff', linewidth=2.5, linestyle='-', zorder=10)
+    ax.fill(angles, values, color='#4a9eff', alpha=0.2)
+    ax.scatter(angles, values, color='#4a9eff', s=80, edgecolors='white', linewidth=2, zorder=11)
     ax.set_ylim(0, 100)
 
-    # 设置标签（不使用中文字体文件）
     ax.set_yticklabels([])
     ax.set_xticks(angles[:-1])
-    ax.set_xticklabels(labels, color='black', weight='bold', fontsize=12)
+    ax.set_xticklabels(labels, color='#ffffff', weight='bold', fontsize=12)
 
     ax.tick_params(pad=30)
     img_buf = io.BytesIO()
-    plt.savefig(img_buf, format='png', bbox_inches='tight', dpi=300, facecolor='white')
+    plt.savefig(img_buf, format='png', bbox_inches='tight', dpi=300, facecolor='#1e2130', transparent=False)
     img_buf.seek(0)
     plt.close(fig)
     return img_buf
 
-def set_font(run, font_name_cn, font_name_en='Times New Roman', size_pt=10.5, bold=False, color=None):
-    """设置Word字体"""
-    run.font.name = font_name_en
-    run._element.rPr.rFonts.set(qn('w:eastAsia'), font_name_cn)
-    run.font.size = Pt(size_pt)
-    run.font.bold = bold
-    if color:
-        run.font.color.rgb = color
-
 def create_word_docx_simple(report_text, student_name, radar_img_stream=None):
-    """创建简化的Word文档（Linux兼容版本）"""
+    """创建Word文档"""
     doc = Document()
 
-    # 添加标题
     title = doc.add_heading(level=1)
     title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
     run = title.add_run(f"{student_name} 数学诊断报告")
     run.font.size = Pt(18)
     run.bold = True
 
-    # 添加雷达图
     if radar_img_stream:
         try:
             radar_img_stream.seek(0)
@@ -279,7 +419,6 @@ def create_word_docx_simple(report_text, student_name, radar_img_stream=None):
         except:
             pass
 
-    # 添加内容
     lines = report_text.split('\n')
     for line in lines:
         line = line.strip()
@@ -310,156 +449,152 @@ def create_word_docx_simple(report_text, student_name, radar_img_stream=None):
     doc_io.seek(0)
     return doc_io
 
-# ==================== 3. AI Prompts ====================
+# ==================== Prompt 模板 ====================
 def get_quick_diagnosis_prompt(student_info):
-    """快速诊断Prompt（预览版）"""
-    return f"""
-你是陈老师，一位有11年经验的DSE/高考数学专家。
-
-根据以下学生信息，进行快速数学诊断：
+    """快速诊断Prompt"""
+    return f"""你是陈老师，一位有11年经验的DSE/高考数学专家。
 
 【学生信息】
-{student_info}
+{json.dumps(student_info, ensure_ascii=False, indent=2)}
 
 【任务】
 请生成一份简明的数学诊断报告（预览版），包含：
 
-1. **当前水平评估**（1-2句话）
-2. **主要问题识别**（3个要点）
-3. **提分建议**（3条具体建议）
-4. **能力雷达图评分**（JSON格式，6个维度各0-100分）
+1. **当前水平评估**（1-2句话，客观具体）
+2. **主要问题识别**（3个要点，针对错题类型）
+3. **提分建议**（3条具体可执行的建议）
+4. **能力雷达图评分**（JSON格式，6个维度各0-100分，根据错题情况合理分布）
 
 【输出格式】
 # {student_info.get('name', '同学')} 数学诊断报告（预览版）
 
 ## 一、当前水平评估
-[评估内容]
+[具体评估内容，结合成绩和错题分析]
 
 ## 二、主要问题识别
-1. [问题1]
-2. [问题2]
-3. [问题3]
+1. [针对第一个错题类型的问题分析]
+2. [针对第二个错题类型的问题分析]
+3. [针对第三个错题类型的问题分析]
 
 ## 三、提分建议
-1. [建议1]
-2. [建议2]
-3. [建议3]
+1. [第一条具体建议，包含方法和时间]
+2. [第二条具体建议]
+3. [第三条具体建议]
 
-## 四、完整报告
-⚠️ 这是预览版（30%内容）。完整版包含：
+## 四、获取完整报告
+这是预览版（30%内容）。完整版包含：
 - 详细知识漏洞分析
-- 个性化学习计划
+- 个性化学习计划（分阶段）
 - 专属练习题库
 - 提分时间预测
 
-**添加陈老师微信免费领取完整报告：{WECHAT_ID}**
+添加陈老师微信免费领取完整报告：{WECHAT_ID}
 
 ---JSON_START---
-{{"代数运算": 70, "几何直观": 60, "逻辑推理": 65, "数据分析": 55, "数学建模": 50, "创新意识": 60}}
+{{"代数运算": 65, "几何直观": 60, "逻辑推理": 70, "数据分析": 55, "数学建模": 50, "创新意识": 60}}
 """
 
-def get_full_diagnosis_prompt(student_info, verified_data=None):
-    """完整诊断Prompt"""
-    data_str = json.dumps(verified_data, ensure_ascii=False) if verified_data else "无详细数据"
-
-    return f"""
-你是陈老师，一位有11年经验的DSE/高考数学专家。
-
-【学生信息】
-{student_info}
-
-【题目数据】
-{data_str}
-
-【任务】
-请生成一份**完整的数学诊断报告**，包含：
-
-1. **总体表现概览**
-   - 试卷得分/正确率
-   - 总体评价
-
-2. **逐题深度分析**（如果有题目数据）
-   - 每道题的核心考点
-   - 诊断分析
-   - 复习建议
-
-3. **能力薄弱点诊断**
-
-4. **巩固知识与优势识别**
-
-5. **阶段性复习建议与行动方案**
-   - 基础夯实阶段（2-3周）
-   - 能力提升阶段（3-4周）
-   - 应试与策略优化
-
-6. **总结与展望**
-
-【输出格式】
-使用Markdown格式，最后附上能力雷达图的JSON数据。
-"""
-
-# ==================== 4. 主界面 ====================
+# ==================== 侧边栏 ====================
 with st.sidebar:
-    st.markdown("### ⚙️ 诊断设置")
-
-    exam_type = st.selectbox(
-        "考试类型",
-        ("DSE - 必修数学", "DSE - 延伸M1", "DSE - 延伸M2", "高考 - 数学")
-    )
-
-    student_name = st.text_input("学生姓名", value="同学")
-
-    st.markdown("---")
-    st.info(f"""
-    ### 👨‍🏫 关于陈老师
-
-    - 11年数学教学经验
-    - 3年DSE国际教育经验
-    - 专业：DSE延伸数学
-
-    微信：**{WECHAT_ID}**
-    """)
-
-# ==================== 主内容区 ====================
-st.title("🧬 DSE/高考数学提分潜力诊断")
-
-# 两种诊断模式
-mode = st.radio(
-    "选择诊断模式",
-    ["📝 快速诊断（免费）", "📄 深度诊断（上传试卷）"],
-    horizontal=True,
-    label_visibility="collapsed"
-)
-
-# ==================== 模式1：快速诊断 ====================
-if mode == "📝 快速诊断（免费）":
     st.markdown("""
-    <div class="glass-card">
-        <h3>🚀 快速诊断 - 免费体验</h3>
-        <p>填写基本信息，AI快速分析提分潜力</p>
+    <div style='text-align: center; padding: 20px 0;'>
+        <h2 style='color: #ffffff; margin: 0;'>诊断设置</h2>
+        <p style='color: #8892b0; margin: 5px 0 0 0;'>Configuration</p>
     </div>
     """, unsafe_allow_html=True)
 
+    st.markdown("---")
+
+    exam_type = st.selectbox(
+        "考试类型",
+        ("DSE - 必修数学", "DSE - 延伸M1", "DSE - 延伸M2", "高考 - 数学"),
+        label_visibility="visible"
+    )
+
+    student_name = st.text_input("学生姓名", value="同学", placeholder="请输入姓名")
+
+    st.markdown("---")
+    st.markdown("""
+    <div style='background: rgba(74, 158, 255, 0.1); border: 1px solid #4a9eff; border-radius: 10px; padding: 15px;'>
+        <h4 style='color: #ffffff; margin: 0 0 10px 0;'>关于陈老师</h4>
+        <p style='color: #8892b0; margin: 5px 0;'>11年数学教学经验</p>
+        <p style='color: #8892b0; margin: 5px 0;'>3年DSE国际教育经验</p>
+        <p style='color: #8892b0; margin: 5px 0 15px 0;'>专业：DSE延伸数学</p>
+        <p style='color: #ffffff; margin: 0;'>微信：<strong>{WECHAT_ID}</strong></p>
+    </div>
+    """.format(WECHAT_ID=WECHAT_ID), unsafe_allow_html=True)
+
+# ==================== 主内容区 ====================
+# 标题区域
+st.markdown("""
+<div class='main-title'>DSE/高考数学提分潜力诊断</div>
+<div class='main-subtitle'>AI驱动的智能诊断 · 精准识别薄弱环节 · 科学规划提分路径</div>
+""", unsafe_allow_html=True)
+
+# 模式选择
+col1, col2 = st.columns(2)
+with col1:
+    quick_mode = st.button("""
+    <div style='text-align: center;'>
+        <div style='font-size: 2rem; margin-bottom: 5px;'>⚡</div>
+        <div style='font-size: 1.2rem; font-weight: 600; color: #ffffff;'>快速诊断</div>
+        <div style='font-size: 0.85rem; color: #8892b0; margin-top: 5px;'>免费体验 · 即刻分析</div>
+    </div>
+    """, use_container_width=True, key="quick_mode")
+
+with col2:
+    deep_mode = st.button("""
+    <div style='text-align: center;'>
+        <div style='font-size: 2rem; margin-bottom: 5px;'>📄</div>
+        <div style='font-size: 1.2rem; font-weight: 600; color: #ffffff;'>深度诊断</div>
+        <div style='font-size: 0.85rem; color: #8892b0; margin-top: 5px;'>上传试卷 · 逐题分析</div>
+    </div>
+    """, use_container_width=True, key="deep_mode")
+
+# 初始化session state
+if 'mode' not in st.session_state:
+    st.session_state['mode'] = 'quick'
+
+if quick_mode:
+    st.session_state['mode'] = 'quick'
+    st.rerun()
+if deep_mode:
+    st.session_state['mode'] = 'deep'
+    st.rerun()
+
+# ==================== 快速诊断模式 ====================
+if st.session_state.get('mode') == 'quick':
+    st.markdown("""
+    <div class='feature-card'>
+        <h3>快速诊断</h3>
+        <p>填写基本信息，AI系统将快速分析学生的数学学习状况，识别薄弱环节，给出针对性建议</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 输入区域
     col1, col2 = st.columns(2)
     with col1:
-        recent_score = st.number_input("最近一次数学成绩", 0, 160, value=80, step=1)
+        recent_score = st.number_input("最近一次数学成绩", min_value=0, max_value=160, value=80, step=1)
     with col2:
-        total_score = st.number_input("试卷满分", 60, 160, value=150, step=1)
+        total_score = st.number_input("试卷满分", min_value=60, max_value=160, value=150, step=1)
 
-    wrong_topics = st.multiselect(
-        "常错题型（可多选）",
-        ["函数与导数", "三角函数", "数列", "解析几何", "概率统计", "立体几何", "延伸数学-微积分", "延伸数学-代数"],
-        default=[]
-    )
+    col1, col2 = st.columns(2)
+    with col1:
+        wrong_topics = st.multiselect(
+            "常错题型（可多选）",
+            ["函数与导数", "三角函数", "数列", "解析几何", "概率统计", "立体几何", "延伸数学-微积分", "延伸数学-代数"],
+            default=[]
+        )
+    with col2:
+        learning_goal = st.selectbox(
+            "学习目标",
+            ["夯实基础", "提升成绩", "冲刺高分", "DSE延伸数学入门"]
+        )
 
-    learning_goal = st.selectbox(
-        "学习目标",
-        ["夯实基础", "提升成绩", "冲刺高分", "DSE延伸数学入门"]
-    )
-
-    if st.button("🚀 开始免费诊断", type="primary"):
+    # 开始诊断按钮
+    if st.button("开始AI诊断", type="primary", use_container_width=True):
         if not wrong_topics:
-            st.error("请至少选择一个错题类型")
+            st.error("请至少选择一个错题类型，以便AI进行精准分析")
         else:
             student_info = {
                 "name": student_name,
@@ -470,27 +605,24 @@ if mode == "📝 快速诊断（免费）":
                 "exam_type": exam_type
             }
 
-            with st.status("🤖 AI正在分析...", expanded=True) as status:
-                st.write("1. 分析成绩数据...")
-                time.sleep(0.5)
-                st.write("2. 识别薄弱环节...")
-                time.sleep(0.5)
-                st.write("3. 生成诊断报告...")
+            with st.status("AI正在分析中...", expanded=True) as status:
+                st.write("分析成绩数据...")
+                time.sleep(0.3)
+                st.write("识别薄弱环节...")
+                time.sleep(0.3)
+                st.write("生成诊断报告...")
 
-                try:
-                    genai.configure(api_key=GEMINI_API_KEY)
-                    model = genai.GenerativeModel('gemini-2.0-flash')
-                    prompt = get_quick_diagnosis_prompt(student_info)
-                    response = call_ai_with_retry(model, prompt)
-                    full_text = response.text
+                prompt = get_quick_diagnosis_prompt(student_info)
+                result, source = call_ai_with_fallback(prompt)
 
+                if result:
                     # 提取JSON部分
-                    if "---JSON_START---" in full_text:
-                        parts = full_text.split("---JSON_START---")
+                    if "---JSON_START---" in result:
+                        parts = result.split("---JSON_START---")
                         body = parts[0].strip()
                         json_str = parts[1].strip().replace("```json", "").replace("```", "").strip()
                     else:
-                        body = full_text
+                        body = result
                         json_str = '{"代数运算": 60, "几何直观": 60, "逻辑推理": 60, "数据分析": 60, "数学建模": 60, "创新意识": 60}'
 
                     # 解析雷达图数据
@@ -503,140 +635,148 @@ if mode == "📝 快速诊断（免费）":
                     st.session_state['radar_img'] = create_radar_chart_image(radar_data)
                     st.session_state['student_name'] = student_name
 
-                    st.toast("✅ 诊断完成！", icon="🎉")
-                    status.update(label="✅ 诊断完成！", state="complete")
+                    st.toast(f"诊断完成！使用模型：{source}", icon="✅")
+                    status.update(label="诊断完成！", state="complete")
                     st.rerun()
-
-                except Exception as e:
-                    st.error(f"诊断失败: {e}")
+                else:
+                    st.error(f"诊断失败：{source}")
 
     # 显示报告
     if 'report_text' in st.session_state:
-        c1, c2 = st.columns([2, 1])
-        with c1:
-            st.markdown(f"<div class='glass-card'>{st.session_state['report_text']}</div>", unsafe_allow_html=True)
-        with c2:
+        col1, col2 = st.columns([3, 2])
+
+        with col1:
+            st.markdown("<h3 style='color: #ffffff; margin-bottom: 15px;'>诊断报告</h3>", unsafe_allow_html=True)
+            st.markdown(f"<div class='report-container'>{st.session_state['report_text']}</div>", unsafe_allow_html=True)
+
+        with col2:
             if 'radar_img' in st.session_state:
-                st.image(st.session_state['radar_img'], caption="能力维度分析")
+                st.image(st.session_state['radar_img'], use_container_width=True)
 
-        # 下载按钮（预览版）
-        docx_file = create_word_docx_simple(
-            st.session_state['report_text'],
-            st.session_state.get('student_name', '同学'),
-            st.session_state.get('radar_img')
-        )
-        st.download_button(
-            label="📥 下载预览报告",
-            data=docx_file,
-            file_name=f"{st.session_state.get('student_name', '同学')}_诊断报告_预览版.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        )
+            # 下载按钮
+            docx_file = create_word_docx_simple(
+                st.session_state['report_text'],
+                st.session_state.get('student_name', '同学'),
+                st.session_state.get('radar_img')
+            )
+            st.download_button(
+                "📥 下载报告",
+                data=docx_file,
+                file_name=f"{st.session_state.get('student_name', '同学')}_诊断报告.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True
+            )
 
-        # 完整版引导
-        st.markdown("""
-        <div style='background: linear-gradient(90deg, rgba(0,201,255,0.2), rgba(146,254,157,0.2));
-                   padding: 20px; border-radius: 10px; text-align: center; margin-top: 20px;'>
-            <h3>🔥 想要完整报告？</h3>
-            <p>完整版包含详细知识漏洞分析、个性化学习计划、专属练习题库</p>
-            <p style='font-size: 1.2rem; font-weight: bold; margin: 15px 0;'>
-                添加陈老师微信：<span style='color: #00C9FF;'>{WECHAT_ID}</span>
-            </p>
-            <p>备注【提分】免费领取完整报告</p>
+        # 微信引流
+        st.markdown(f"""
+        <div class='wechat-card'>
+            <h3>获取完整深度报告</h3>
+            <p style='color: #8892b0; margin-bottom: 15px;'>完整版包含详细知识漏洞分析、个性化学习计划、专属练习题库</p>
+            <div class='wechat-id'>微信：{WECHAT_ID}</div>
+            <p style='color: #8892b0; margin-top: 10px;'>备注【提分】免费领取完整报告</p>
         </div>
-        """.format(WECHAT_ID=WECHAT_ID), unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-# ==================== 模式2：深度诊断 ====================
+# ==================== 深度诊断模式 ====================
 else:
     st.markdown("""
-    <div class="glass-card">
-        <h3>📄 深度诊断 - 上传试卷</h3>
-        <p>上传试卷图片/PDF，AI逐题分析</p>
+    <div class='feature-card'>
+        <h3>深度诊断</h3>
+        <p>上传试卷图片或PDF，AI将逐题分析，生成详细的学习诊断报告</p>
     </div>
     """, unsafe_allow_html=True)
 
     uploaded_file = st.file_uploader(
-        "📂 上传试卷图片或PDF",
+        "上传试卷图片或PDF",
         type=['pdf', 'png', 'jpg', 'jpeg'],
-        help="支持PDF、PNG、JPG格式"
+        help="支持PDF、PNG、JPG格式，建议上传清晰图片"
     )
 
     if uploaded_file:
         file_bytes = uploaded_file.getvalue()
 
-        # 检测文件类型
         if uploaded_file.type == "application/pdf":
             doc_temp = fitz.open(stream=file_bytes, filetype="pdf")
             total_pages = len(doc_temp)
             doc_temp.close()
 
-            st.info(f"📄 检测到PDF文件，共 {total_pages} 页")
+            st.info(f"检测到PDF文件，共 {total_pages} 页")
 
-            page_range = st.slider("选择页面", 1, total_pages, (1, min(3, total_pages)))
+            page_range = st.slider("选择要分析的页面", 1, total_pages, (1, min(3, total_pages)))
 
-            if st.button("🚀 开始深度分析", type="primary"):
-                with st.status("🔍 正在分析试卷...", expanded=True) as status:
-                    st.write("1. 处理图像...")
+            if st.button("开始深度分析", type="primary", use_container_width=True):
+                with st.status("AI分析中...", expanded=True) as status:
+                    st.write("处理图像...")
                     images, enhanced = process_pdf_bytes(file_bytes, page_range[0], page_range[1])
 
-                    st.write("2. AI识别题目...")
-                    try:
-                        genai.configure(api_key=GEMINI_API_KEY)
-                        model = genai.GenerativeModel('gemini-2.0-flash')
+                    st.write("AI逐题分析...")
+                    prompt = f"""你是陈老师，一位有11年经验的DSE/高考数学专家。
 
-                        # 构建诊断Prompt
-                        student_info = {
-                            "name": student_name,
-                            "exam_type": exam_type,
-                            "pages": f"{page_range[0]}-{page_range[1]}"
-                        }
-                        prompt = get_full_diagnosis_prompt(student_info)
+请分析这些试卷图片，生成完整的诊断报告。
 
-                        response = call_ai_with_retry(model, prompt, enhanced)
-                        full_text = response.text
+【学生信息】
+- 姓名：{student_name}
+- 考试类型：{exam_type}
+- 页码范围：{page_range[0]}-{page_range[1]}
 
-                        st.session_state['report_text'] = full_text
+【任务】
+1. 识别试卷中的题目和作答情况
+2. 分析错误原因
+3. 给出针对性的学习建议
+
+【输出格式】
+使用Markdown格式，包含：
+1. 总体评价
+2. 逐题分析
+3. 薄弱环节诊断
+4. 复习建议
+"""
+
+                    result, source = call_ai_with_fallback(prompt, enhanced)
+
+                    if result:
+                        st.session_state['report_text'] = result
                         st.session_state['student_name'] = student_name
 
-                        st.toast("✅ 分析完成！", icon="🎉")
-                        status.update(label="✅ 分析完成！", state="complete")
+                        st.toast(f"分析完成！使用模型：{source}", icon="✅")
+                        status.update(label="分析完成！", state="complete")
                         st.rerun()
-
-                    except Exception as e:
-                        st.error(f"分析失败: {e}")
-
+                    else:
+                        st.error(f"分析失败：{source}")
         else:
-            # 图片文件
-            st.info(f"📷 检测到图片文件")
+            st.info("检测到图片文件")
             st.image(uploaded_file, caption="上传的试卷", use_container_width=True)
 
-            if st.button("🚀 开始分析", type="primary"):
-                with st.status("🔍 正在分析..."):
-                    try:
-                        genai.configure(api_key=GEMINI_API_KEY)
-                        model = genai.GenerativeModel('gemini-2.0-flash')
+            if st.button("开始分析", type="primary", use_container_width=True):
+                with st.status("AI分析中..."):
+                    image = Image.open(io.BytesIO(file_bytes))
+                    enhanced = enhance_image_for_ocr(image)
 
-                        # 处理图片
-                        image = Image.open(io.BytesIO(file_bytes))
-                        enhanced = enhance_image_for_ocr(image)
+                    prompt = f"""你是陈老师，一位有11年经验的DSE/高考数学专家。
 
-                        student_info = {"name": student_name, "exam_type": exam_type}
-                        prompt = get_full_diagnosis_prompt(student_info)
+请分析这张试卷图片，生成诊断报告。
 
-                        response = call_ai_with_retry(model, prompt, [enhanced])
-                        full_text = response.text
+【学生信息】
+- 姓名：{student_name}
+- 考试类型：{exam_type}
 
-                        st.session_state['report_text'] = full_text
+【任务】
+分析试卷内容，给出诊断和学习建议。
+"""
+
+                    result, source = call_ai_with_fallback(prompt, [enhanced])
+
+                    if result:
+                        st.session_state['report_text'] = result
                         st.session_state['student_name'] = student_name
-
-                        st.toast("✅ 分析完成！", icon="🎉")
                         st.rerun()
-
-                    except Exception as e:
-                        st.error(f"分析失败: {e}")
+                    else:
+                        st.error(f"分析失败：{source}")
 
     # 显示深度报告
     if 'report_text' in st.session_state:
-        st.markdown(f"<div class='glass-card'>{st.session_state['report_text']}</div>", unsafe_allow_html=True)
+        st.markdown("<h3 style='color: #ffffff; margin-bottom: 15px;'>深度分析报告</h3>", unsafe_allow_html=True)
+        st.markdown(f"<div class='report-container'>{st.session_state['report_text']}</div>", unsafe_allow_html=True)
 
         docx_file = create_word_docx_simple(
             st.session_state['report_text'],
@@ -644,17 +784,17 @@ else:
         )
 
         st.download_button(
-            label="📥 下载完整报告",
+            "📥 下载完整报告",
             data=docx_file,
             file_name=f"{st.session_state.get('student_name', '同学')}_深度诊断报告.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            type="primary"
+            use_container_width=True
         )
 
 # ==================== 底部信息 ====================
 st.markdown("""
-<div style='text-align: center; color: #888; font-size: 0.8rem; margin-top: 50px; padding: 20px;'>
-    <p>🧬 DSE/高考数学诊断工具 | 陈老师开发</p>
-    <p>微信：{WECHAT_ID} | 备注【提分】领取完整报告</p>
+<div style='text-align: center; color: #8892b0; font-size: 0.85rem; margin-top: 50px; padding: 20px; border-top: 1px solid #2d3548;'>
+    <p>DSE/高考数学诊断工具 v2.0 | 陈老师开发</p>
+    <p>AI模型：Gemini 2.5 Pro + GLM-4 Plus 双引擎</p>
 </div>
-""".format(WECHAT_ID=WECHAT_ID), unsafe_allow_html=True)
+""", unsafe_allow_html=True)
