@@ -532,39 +532,25 @@ st.markdown("""
 <div class='main-subtitle'>AI驱动的智能诊断 · 精准识别薄弱环节 · 科学规划提分路径</div>
 """, unsafe_allow_html=True)
 
-# 模式选择
-col1, col2 = st.columns(2)
-with col1:
-    quick_mode = st.button("""
-    <div style='text-align: center;'>
-        <div style='font-size: 2rem; margin-bottom: 5px;'>⚡</div>
-        <div style='font-size: 1.2rem; font-weight: 600; color: #ffffff;'>快速诊断</div>
-        <div style='font-size: 0.85rem; color: #8892b0; margin-top: 5px;'>免费体验 · 即刻分析</div>
-    </div>
-    """, use_container_width=True, key="quick_mode")
-
-with col2:
-    deep_mode = st.button("""
-    <div style='text-align: center;'>
-        <div style='font-size: 2rem; margin-bottom: 5px;'>📄</div>
-        <div style='font-size: 1.2rem; font-weight: 600; color: #ffffff;'>深度诊断</div>
-        <div style='font-size: 0.85rem; color: #8892b0; margin-top: 5px;'>上传试卷 · 逐题分析</div>
-    </div>
-    """, use_container_width=True, key="deep_mode")
+# 模式选择（使用radio避免页面频繁刷新）
+mode = st.radio(
+    "选择诊断模式",
+    ["快速诊断", "深度诊断"],
+    horizontal=True,
+    label_visibility="collapsed"
+)
 
 # 初始化session state
 if 'mode' not in st.session_state:
     st.session_state['mode'] = 'quick'
 
-if quick_mode:
-    st.session_state['mode'] = 'quick'
-    st.rerun()
-if deep_mode:
-    st.session_state['mode'] = 'deep'
-    st.rerun()
+# 只在模式真正改变时更新状态
+current_mode = 'quick' if mode == "快速诊断" else 'deep'
+if st.session_state['mode'] != current_mode:
+    st.session_state['mode'] = current_mode
 
 # ==================== 快速诊断模式 ====================
-if st.session_state.get('mode') == 'quick':
+if mode == "快速诊断":
     st.markdown("""
     <div class='feature-card'>
         <h3>快速诊断</h3>
@@ -679,7 +665,7 @@ if st.session_state.get('mode') == 'quick':
         """, unsafe_allow_html=True)
 
 # ==================== 深度诊断模式 ====================
-else:
+elif mode == "深度诊断":
     st.markdown("""
     <div class='feature-card'>
         <h3>深度诊断</h3>
