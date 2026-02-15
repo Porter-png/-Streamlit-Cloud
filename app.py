@@ -19,6 +19,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from docx import Document
 from docx.shared import Pt, Inches
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 
 # ==================== 核心配置 ====================
 # API密钥
