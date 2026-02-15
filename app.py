@@ -221,7 +221,7 @@ def process_pdf_bytes(file_bytes, start_page, end_page):
     return images, enhanced_images
 
 def create_radar_chart_image(scores):
-    """创建雷达图"""
+    """创建雷达图（Linux兼容版本）"""
     labels = list(scores.keys())
     values = list(scores.values())
     values += values[:1]
@@ -239,15 +239,10 @@ def create_radar_chart_image(scores):
     ax.scatter(angles, values, color='#0066CC', s=80, edgecolors='white', linewidth=2, zorder=11)
     ax.set_ylim(0, 100)
 
-    try:
-        font_prop = FontProperties(fname=r"C:\Windows\Fonts\msyh.ttc", size=14)
-        ax.set_yticklabels([])
-        ax.set_xticks(angles[:-1])
-        ax.set_xticklabels(labels, fontproperties=font_prop, color='black', weight='bold')
-    except:
-        ax.set_yticklabels([])
-        ax.set_xticks(angles[:-1])
-        ax.set_xticklabels(labels, color='black', weight='bold')
+    # 设置标签（不使用中文字体文件）
+    ax.set_yticklabels([])
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(labels, color='black', weight='bold', fontsize=12)
 
     ax.tick_params(pad=30)
     img_buf = io.BytesIO()
