@@ -237,62 +237,52 @@ st.markdown("""
         fill: #FFFFFF !important;
     }
 
-    /* ========== 主内容区标题渐变蓝高亮 ========== */
-    /* 主内容区全局标签样式 */
-    .main label,
-    .main [data-testid*="stNumberInput"] label,
-    .main [data-testid*="stSelect"] label,
-    .main [data-testid*="stMulti"] label,
-    .main [data-testid*="stRadio"] label,
-    .main [data-testid*="stSlider"] label,
-    .main [data-testid*="stText"] label,
-    .main [data-testid*="stFileUpload"] label {
-        color: #00C9FF !important;
-        font-weight: 700 !important;
-        font-size: 1rem !important;
+    /* ========== 主内容区标题高亮（参考 Math AI Pro 标准）========== */
+    /* 全局标签样式修复 - 确保在深色背景下可见 */
+    label, .label, [role="label"], span[kind="label"] {
+        color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
     }
 
-    /* 多选框 - 全面覆盖 */
-    [data-testid="stMultiselect"] label,
-    [data-testid="stMultiselect"] span[data-testid="stMarkdownContainer"] {
+    /* 所有 Streamlit 输入组件的标签 */
+    [data-testid*="stNumberInput"] label,
+    [data-testid*="stSelect"] label,
+    [data-testid*="stMulti"] label,
+    [data-testid*="stRadio"] label,
+    [data-testid*="stSlider"] label,
+    [data-testid*="stText"] label,
+    [data-testid*="stFileUpload"] label {
         color: #00C9FF !important;
+        -webkit-text-fill-color: #00C9FF !important;
         font-weight: 700 !important;
     }
 
-    /* 下拉框 */
-    [data-testid="stSelectbox"] label {
-        color: #00C9FF !important;
-        font-weight: 700 !important;
+    /* 多选框下拉框内文本 */
+    [data-testid="stMultiselect"] span {
+        color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
     }
 
-    /* 单选框选项文本 */
+    /* 下拉框选项 */
+    [data-testid="stSelectbox"] option {
+        background-color: #1a1a1a !important;
+        color: #FFFFFF !important;
+    }
+
+    /* 单选框选项 */
+    [data-testid="stRadio"] [role="radio"] {
+        background-color: #1a1a1a !important;
+        border-color: #00C9FF !important;
+    }
     [data-testid="stRadio"] [role="radio"] + div {
         color: #00C9FF !important;
-        font-weight: 700 !important;
     }
 
-    /* 数字输入框 */
-    [data-testid="stNumberInput"] label {
-        color: #00C9FF !important;
-        font-weight: 700 !important;
-    }
-
-    /* 文本输入框 */
-    [data-testid="stTextInput"] label {
-        color: #00C9FF !important;
-        font-weight: 700 !important;
-    }
-
-    /* 文件上传 */
-    [data-testid="stFileUploader"] label {
-        color: #00C9FF !important;
-        font-weight: 700 !important;
-    }
-
-    /* 滑块 */
-    [data-testid="stSlider"] label {
-        color: #00C9FF !important;
-        font-weight: 700 !important;
+    /* 所有文本输入确保可见 */
+    input[type="text"], input[type="number"], textarea {
+        background-color: #1a1a1a !important;
+        color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
     }
 </style>
 """, unsafe_allow_html=True)
