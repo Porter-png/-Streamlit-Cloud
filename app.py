@@ -237,50 +237,50 @@ st.markdown("""
         fill: #FFFFFF !important;
     }
 
-    /* ========== 主内容区标题高亮 ========== */
+    /* ========== 主内容区标题白色高亮 ========== */
     /* 数字输入框标签 */
     [data-testid="stNumberInput"] label {
-        color: #FFD700 !important;
+        color: #FFFFFF !important;
         font-weight: 700 !important;
         font-size: 1rem !important;
     }
 
     /* 多选框标签 */
     [data-testid="stMultiselect"] label {
-        color: #FFD700 !important;
+        color: #FFFFFF !important;
         font-weight: 700 !important;
         font-size: 1rem !important;
     }
 
     /* 下拉框标签 */
     [data-testid="stSelectbox"] label {
-        color: #FFD700 !important;
+        color: #FFFFFF !important;
         font-weight: 700 !important;
         font-size: 1rem !important;
     }
 
     /* 单选框标签 */
     [data-testid="stRadio"] label {
-        color: #FFD700 !important;
+        color: #FFFFFF !important;
         font-weight: 700 !important;
     }
 
     /* 文本输入框标签 */
     [data-testid="stTextInput"] label {
-        color: #FFD700 !important;
+        color: #FFFFFF !important;
         font-weight: 700 !important;
     }
 
     /* 文件上传标签 */
     [data-testid="stFileUploader"] label {
-        color: #FFD700 !important;
-        font-weight: 800 !important;
-        font-size: 1.1rem !important;
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
+        font-size: 1rem !important;
     }
 
     /* 滑块标签 */
     [data-testid="stSlider"] label {
-        color: #FFD700 !important;
+        color: #FFFFFF !important;
         font-weight: 700 !important;
     }
 </style>
