@@ -299,7 +299,16 @@ def call_ai_gemini(prompt, images=None):
             response = model.generate_content(prompt)
         return response.text, "gemini"
     except Exception as e:
-        return None, f"gemini_error: {str(e)}"
+        error_msg = str(e)
+        # 详细错误信息
+        if "401" in error_msg or "UNAUTHENTICATED" in error_msg:
+            return None, "Gemini API密钥无效，请检查配置"
+        elif "429" in error_msg:
+            return None, "Gemini API请求过于频繁，请稍后重试"
+        elif "quota" in error_msg.lower():
+            return None, "Gemini API配额已用完"
+        else:
+            return None, f"Gemini错误: {error_msg[:100]}"
 
 def call_ai_glm(prompt):
     """使用GLM API作为备用"""
@@ -313,7 +322,13 @@ def call_ai_glm(prompt):
         )
         return response.choices[0].message.content, "glm"
     except Exception as e:
-        return None, f"glm_error: {str(e)}"
+        error_msg = str(e)
+        if "401" in error_msg or "UNAUTHORIZED" in error_msg:
+            return None, "GLM API密钥无效，请检查配置"
+        elif "429" in error_msg:
+            return None, "GLM API请求过于频繁，请稍后重试"
+        else:
+            return None, f"GLM错误: {error_msg[:100]}"
 
 def call_ai_with_retry(model, prompt, content_list=None, max_retries=3, retry_delay=30):
     """带重试的AI调用"""
