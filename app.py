@@ -238,47 +238,58 @@ st.markdown("""
     }
 
     /* ========== 主内容区标题渐变蓝高亮 ========== */
-    /* 数字输入框标签 */
-    [data-testid="stNumberInput"] label {
+    /* 主内容区全局标签样式 */
+    .main label,
+    .main [data-testid*="stNumberInput"] label,
+    .main [data-testid*="stSelect"] label,
+    .main [data-testid*="stMulti"] label,
+    .main [data-testid*="stRadio"] label,
+    .main [data-testid*="stSlider"] label,
+    .main [data-testid*="stText"] label,
+    .main [data-testid*="stFileUpload"] label {
         color: #00C9FF !important;
         font-weight: 700 !important;
         font-size: 1rem !important;
     }
 
-    /* 多选框标签 */
-    [data-testid="stMultiselect"] label {
+    /* 多选框 - 全面覆盖 */
+    [data-testid="stMultiselect"] label,
+    [data-testid="stMultiselect"] span[data-testid="stMarkdownContainer"] {
         color: #00C9FF !important;
         font-weight: 700 !important;
-        font-size: 1rem !important;
     }
 
-    /* 下拉框标签 */
+    /* 下拉框 */
     [data-testid="stSelectbox"] label {
         color: #00C9FF !important;
         font-weight: 700 !important;
-        font-size: 1rem !important;
     }
 
-    /* 单选框标签 */
-    [data-testid="stRadio"] label {
+    /* 单选框选项文本 */
+    [data-testid="stRadio"] [role="radio"] + div {
         color: #00C9FF !important;
         font-weight: 700 !important;
     }
 
-    /* 文本输入框标签 */
+    /* 数字输入框 */
+    [data-testid="stNumberInput"] label {
+        color: #00C9FF !important;
+        font-weight: 700 !important;
+    }
+
+    /* 文本输入框 */
     [data-testid="stTextInput"] label {
         color: #00C9FF !important;
         font-weight: 700 !important;
     }
 
-    /* 文件上传标签 */
+    /* 文件上传 */
     [data-testid="stFileUploader"] label {
         color: #00C9FF !important;
         font-weight: 700 !important;
-        font-size: 1rem !important;
     }
 
-    /* 滑块标签 */
+    /* 滑块 */
     [data-testid="stSlider"] label {
         color: #00C9FF !important;
         font-weight: 700 !important;
